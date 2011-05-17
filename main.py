@@ -16,4 +16,4 @@ class Handler(WSHandler):
         messages = [{ "content": m["content"] } for m in self.db.messages.find()]
         return messages
 
-start_server(Handler, port=8080)
+start_server(Handler, port=8000)
