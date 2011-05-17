@@ -1,15 +1,8 @@
 #!/usr/bin/env python
 
-from pymongo import Connection
-
-from tornadorpc.json import JSONRPCHandler
 from tornadorpc import private, start_server
 
-class WSHandler(JSONRPCHandler):
-    def __init__(self, *args, **kwargs):
-        super(JSONRPCHandler, self).__init__(*args, **kwargs)
-        conn = Connection()
-        self.db = conn[self._DB]
+from lib.WSHandler import WSHandler
 
 class Handler(WSHandler):
     _DB = "test"
