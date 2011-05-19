@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 from tornadorpc import private, start_server
+from tornadorpc.json import JSONRPCHandler
 
 from pymongo.objectid import ObjectId
 
 from lib.WSHandler import WSHandler
 
-class Handler(WSHandler):
+class Radio(WSHandler):
     _DB = "radioshack"
 
     def add(self, name, freqs=None, streams=None):
@@ -35,5 +36,8 @@ class Handler(WSHandler):
         for r in radios:
             r["_id"] = str(r["_id"])
         return radios
+
+class Handler(JSONRPCHandler):
+    radio = Radio()
 
 start_server(Handler, route="/api/", port=8000)
