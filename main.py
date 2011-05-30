@@ -6,79 +6,89 @@ from tornadorpc.json import JSONRPCHandler
 from pymongo.objectid import ObjectId
 
 from lib.WSHandler import WSHandler
-from lib import db
 
 import models
+
+def decode_seq(model_builder, seq):
+    """Transforms a list of dictionaries into a list of models."""
+    if seq is not None:
+        return [model_builder(**e) for e in seq]
+    return []
 
 class Radio(WSHandler):
     _DB = "radioshack"
 
     def add(self, name, freqs=None, streams=None):
-        radio = { "name": name,
-                  "frequencies": freqs or [],
-                  "streams": streams or [] }
-        if not db.check_model(radio, models.Radio):
-            raise TypeError("bad arguments")
-        id = self.db.radios.insert(radio)
-        return str(id)
+        radio = models.Radio(name=name,
+                            frequencies=decode_seq(models.RadioFreq, freqs),
+                            streams=decode_seq(models.RadioStream, streams))
+        radio.save()
+        return str(radio.id)
 
     def update(self, id, name=None, freqs=None, streams=None):
-        details = { "name": name } if name else {}
+        dirty = False
+        radio = models.Radio.objects.with_id(id)
+        if name is not None:
+            radio.name = name
+            dirty = True
         if freqs is not None:
-            details["freqs"] = freqs
+            radio.frequencies = decode_seq(models.RadioFreq, freqs)
+            dirty = True
         if streams is not None:
-            details["streams"] = streams
-        if details:
-            if not db.check_model(details, models.Radio,
-                                  allow_missing_members=True):
-                raise TypeError("bad arguments")
-            self.db.radios.update({ "_id": ObjectId(id) },
-                                  { "$set": details })
-            return True
-        return False
+            radio.streams = decode_seq(models.RadioStream, streams)
+            dirty = True
+        if dirty:
+            radio.save()
+        return dirty
 
     def remove(self, id):
-        return self.db.radios.remove({ "_id": ObjectId(id) })
+        models.Radio.objects.with_id(id).delete()
+        return True
 
     def all(self):
-        radios = list(self.db.radios.find())
-        for r in radios:
-            r["_id"] = str(r["_id"])
-        return radios
+        return [r.to_json(include_ids=True)
+                for r in models.Radio.objects.all()]
 
 class Show(WSHandler):
     _DB = "radioshack"
 
-    def add(self, title, desc, photo=None, hosts=None, time=None):
-        show = { "title": title,
-                 "desc": desc,
-                 "photo": photo,
-                 "hosts": hosts or [],
-                 "time": time }
-        id = self.db.shows.insert(show)
-        return str(id)
+    def add(self, name, description=None, photoUrl=None, hosts=None):
+        show = models.Show(name=name,
+                           description=description,
+                           photoUrl=photoUrl,
+                           hosts=decode_seq(models.ShowHost, hosts))
+        show.save()
+        return str(show.id)
 
-    def update(self, id, title=None, desc=None, photo=None, hosts=None, time=None):
-        details = { "title": title } if title else {}
-        if freqs is not None:
-            details["freqs"] = freqs
-        if streams is not None:
-            details["streams"] = streams
-        if details:
-            self.db.radios.update({ "_id": ObjectId(id) }, { "$set": details })
-            return True
-        return False
+    def update(self, id, name=None, desc=None, photoUrl=None, hosts=None):
+        dirty = False
+        show = models.Show.objects.with_id(id)
+        if name is not None:
+            show.name = name
+            dirty = True
+        if desc is not None:
+            show.description = desc
+            dirty = True
+        if photoUrl is not None:
+            show.photoUrl = photoUrl
+            dirty = True
+        if hosts is not None:
+            show.hosts = decode_seq(models.ShowHost, hosts)
+            dirty = True
+        if dirty:
+            show.save()
+        return dirty
 
     def remove(self, id):
-        return self.db.radios.remove({ "_id": ObjectId(id) })
+        models.Show.objects.with_id(id).delete()
+        return True
 
     def all(self):
-        radios = list(self.db.radios.find())
-        for r in radios:
-            r["_id"] = str(r["_id"])
-        return radios
-
+        return [s.to_json(include_ids=True)
+                for s in models.Show.objects.all()]
+        
 class Handler(JSONRPCHandler):
     radio = Radio()
+    show = Show()
 
 start_server(Handler, route="/api/", port=8000)
